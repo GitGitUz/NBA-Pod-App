@@ -1,0 +1,14 @@
+{
+  "name": "nba-podcast-predictions-live",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Live-synced NBA podcast predictions + Wins Draft",
+  "main": "server.js",
+  "scripts": { "start": "node server.js" },
+  "engines": { "node": ">=18" },
+  "dependencies": {
+    "express": "^4.19.2",
+    "sortablejs": "^1.15.2",
+    "ws": "^8.18.0"
+  }
+}

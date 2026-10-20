@@ -1,0 +1,597 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NBA Podcast Predictions</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="/vendor/Sortable.min.js"></script>
+    <script>
+        if (window.tailwind) tailwind.config = {
+            darkMode: 'class',
+            theme: { extend: { colors: { darkBg: '#0F172A', cardBg: '#1E293B', cardBorder: '#334155', accent: '#3B82F6' } } }
+        };
+    </script>
+    <style>
+        body { font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; background-color: #0f172a; color: #f8fafc; }
+        .sortable-ghost { opacity: 0.4; background-color: #3b82f6 !important; }
+        .sortable-drag { cursor: grabbing; }
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: #0f172a; }
+        ::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }
+        @keyframes pop { from { transform: scale(.97); opacity: .6 } to { transform: none; opacity: 1 } }
+        .pop { animation: pop .25s ease-out; }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col justify-between antialiased">
+
+<header class="border-b border-cardBorder bg-cardBg/50 backdrop-blur sticky top-0 z-40">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+        <div class="flex items-center justify-between gap-4">
+            <div>
+                <h1 class="text-xl font-bold tracking-tight text-white">NBA Podcast Predictions</h1>
+                <p class="text-xs text-slate-400 mt-0.5">Standings, awards &amp; Wins Draft</p>
+            </div>
+            <div id="status" class="text-xs flex items-center gap-1.5 bg-slate-800/80 px-3 py-1.5 rounded-full border border-cardBorder whitespace-nowrap">
+                <span id="statusDot" class="w-2 h-2 rounded-full bg-amber-500"></span>
+                <span id="statusText" class="text-slate-300">Connecting…</span>
+            </div>
+        </div>
+        <nav class="flex bg-slate-900/80 p-1 rounded-lg border border-cardBorder overflow-x-auto text-sm font-medium" id="tabNav">
+            <button data-act="tab" data-tab="Shruth" class="tab-btn px-4 py-2 rounded-md transition-colors text-slate-400 hover:text-white">Shruth</button>
+            <button data-act="tab" data-tab="Raj" class="tab-btn px-4 py-2 rounded-md transition-colors text-slate-400 hover:text-white">Raj</button>
+            <button data-act="tab" data-tab="Uzair" class="tab-btn px-4 py-2 rounded-md transition-colors text-slate-400 hover:text-white">Uzair</button>
+            <button data-act="tab" data-tab="Visshal" class="tab-btn px-4 py-2 rounded-md transition-colors text-slate-400 hover:text-white">Visshal</button>
+            <button data-act="tab" data-tab="comparison" class="tab-btn px-4 py-2 rounded-md transition-colors text-slate-400 hover:text-white whitespace-nowrap">Side-by-Side</button>
+            <button data-act="tab" data-tab="draft" class="tab-btn px-4 py-2 rounded-md transition-colors text-slate-400 hover:text-white whitespace-nowrap">🏆 Wins Draft</button>
+        </nav>
+    </div>
+</header>
+
+<main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-1 w-full">
+
+    <!-- Host view -->
+    <div id="hostView" class="space-y-8">
+        <div class="flex flex-wrap items-center justify-between gap-3 border-b border-cardBorder/60 pb-4">
+            <h2 id="currentHostTitle" class="text-2xl font-bold text-white"></h2>
+            <div class="flex flex-wrap items-center gap-2 text-xs">
+                <button data-act="copyHost" class="px-3 py-1.5 rounded-md bg-slate-800 hover:bg-slate-700 text-slate-200 border border-cardBorder">Copy as text</button>
+                <button data-act="resetHost" class="px-3 py-1.5 rounded-md bg-slate-800 hover:bg-red-900/60 text-slate-200 border border-cardBorder">Reset to default</button>
+            </div>
+        </div>
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <div class="bg-cardBg border border-cardBorder rounded-xl p-5 shadow-sm">
+                <div class="flex justify-between items-center mb-4 pb-2 border-b border-cardBorder/50">
+                    <h3 class="font-semibold text-lg text-slate-100 flex items-center gap-2"><span class="w-2.5 h-2.5 rounded-full bg-blue-500"></span>Eastern Conference</h3>
+                    <span class="text-xs text-slate-400">Drag or use ↑↓</span>
+                </div>
+                <ul id="eastList" class="space-y-1.5"></ul>
+            </div>
+            <div class="bg-cardBg border border-cardBorder rounded-xl p-5 shadow-sm">
+                <div class="flex justify-between items-center mb-4 pb-2 border-b border-cardBorder/50">
+                    <h3 class="font-semibold text-lg text-slate-100 flex items-center gap-2"><span class="w-2.5 h-2.5 rounded-full bg-red-500"></span>Western Conference</h3>
+                    <span class="text-xs text-slate-400">Drag or use ↑↓</span>
+                </div>
+                <ul id="westList" class="space-y-1.5"></ul>
+            </div>
+        </div>
+        <div class="bg-cardBg border border-cardBorder rounded-xl p-6 shadow-sm">
+            <h3 class="font-semibold text-lg text-slate-100 mb-6 pb-2 border-b border-cardBorder/50">Regular Season Awards</h3>
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" id="awardsFormContainer"></div>
+        </div>
+    </div>
+
+    <!-- Comparison view -->
+    <div id="comparisonView" class="hidden space-y-8">
+        <div class="flex flex-wrap items-center justify-between gap-3 border-b border-cardBorder/60 pb-4">
+            <h2 class="text-2xl font-bold text-white">Side-by-Side Comparison</h2>
+            <div class="flex flex-wrap gap-2 text-xs">
+                <button data-act="copyAll" class="px-3 py-1.5 rounded-md bg-slate-800 text-slate-300 hover:bg-slate-700 border border-cardBorder">Copy all as text</button>
+                <button data-act="exportJSON" class="px-3 py-1.5 rounded-md bg-slate-800 text-slate-300 hover:bg-slate-700 border border-cardBorder">Export JSON</button>
+                <button data-act="importJSON" class="px-3 py-1.5 rounded-md bg-slate-800 text-slate-300 hover:bg-slate-700 border border-cardBorder">Import JSON</button>
+                <input type="file" id="importFile" accept="application/json" class="hidden">
+                <button data-act="subtab" data-sub="standings" id="compBtnStandings" class="px-3 py-1.5 rounded-md bg-accent text-white font-medium">Standings</button>
+                <button data-act="subtab" data-sub="awards" id="compBtnAwards" class="px-3 py-1.5 rounded-md bg-slate-800 text-slate-300 hover:bg-slate-700 font-medium">Awards</button>
+            </div>
+        </div>
+        <div id="comparisonStandings" class="space-y-8">
+            <div class="bg-cardBg border border-cardBorder rounded-xl p-5 shadow-sm overflow-x-auto">
+                <h3 class="font-semibold text-lg text-slate-100 mb-4 flex items-center gap-2"><span class="w-2.5 h-2.5 rounded-full bg-blue-500"></span>Eastern Conference Standings</h3>
+                <table class="w-full text-sm text-left text-slate-300 min-w-[600px]">
+                    <thead class="text-xs text-slate-400 uppercase bg-slate-900/60 border-b border-cardBorder"><tr><th class="py-3 px-3 w-12 text-center">Seed</th><th class="py-3 px-4">Shruth</th><th class="py-3 px-4">Raj</th><th class="py-3 px-4">Uzair</th><th class="py-3 px-4">Visshal</th></tr></thead>
+                    <tbody id="compEastTable" class="divide-y divide-cardBorder/40"></tbody>
+                </table>
+            </div>
+            <div class="bg-cardBg border border-cardBorder rounded-xl p-5 shadow-sm overflow-x-auto">
+                <h3 class="font-semibold text-lg text-slate-100 mb-4 flex items-center gap-2"><span class="w-2.5 h-2.5 rounded-full bg-red-500"></span>Western Conference Standings</h3>
+                <table class="w-full text-sm text-left text-slate-300 min-w-[600px]">
+                    <thead class="text-xs text-slate-400 uppercase bg-slate-900/60 border-b border-cardBorder"><tr><th class="py-3 px-3 w-12 text-center">Seed</th><th class="py-3 px-4">Shruth</th><th class="py-3 px-4">Raj</th><th class="py-3 px-4">Uzair</th><th class="py-3 px-4">Visshal</th></tr></thead>
+                    <tbody id="compWestTable" class="divide-y divide-cardBorder/40"></tbody>
+                </table>
+            </div>
+            <div class="bg-cardBg border border-cardBorder rounded-xl p-5 shadow-sm">
+                <h3 class="font-semibold text-lg text-slate-100 mb-1">Consensus vs. Disagreement</h3>
+                <p class="text-xs text-slate-400 mb-4">Spread = gap between a team's highest and lowest seed across the four hosts. Green cells above mean all four picked the same team for that seed.</p>
+                <div id="divergenceContainer" class="grid grid-cols-1 lg:grid-cols-2 gap-6"></div>
+            </div>
+        </div>
+        <div id="comparisonAwards" class="hidden bg-cardBg border border-cardBorder rounded-xl p-5 shadow-sm overflow-x-auto">
+            <h3 class="font-semibold text-lg text-slate-100 mb-4">Season Awards Comparison</h3>
+            <table class="w-full text-sm text-left text-slate-300 min-w-[600px]">
+                <thead class="text-xs text-slate-400 uppercase bg-slate-900/60 border-b border-cardBorder"><tr><th class="py-3 px-4 w-48">Award</th><th class="py-3 px-4">Shruth</th><th class="py-3 px-4">Raj</th><th class="py-3 px-4">Uzair</th><th class="py-3 px-4">Visshal</th></tr></thead>
+                <tbody id="compAwardsTable" class="divide-y divide-cardBorder/40"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Wins Draft view -->
+    <div id="draftView" class="hidden space-y-8">
+        <div class="flex flex-wrap items-center justify-between gap-3 border-b border-cardBorder/60 pb-4">
+            <div>
+                <h2 class="text-2xl font-bold text-white">🏆 Wins Draft</h2>
+                <p class="text-xs text-slate-400 mt-1">Snake draft NBA teams. Most combined regular-season wins takes it.</p>
+            </div>
+            <div class="flex flex-wrap gap-2 text-xs">
+                <button data-act="copyDraft" class="px-3 py-1.5 rounded-md bg-slate-800 text-slate-300 hover:bg-slate-700 border border-cardBorder">Copy results</button>
+                <button data-act="undo" class="px-3 py-1.5 rounded-md bg-slate-800 text-slate-300 hover:bg-slate-700 border border-cardBorder">↶ Undo last pick</button>
+                <button data-act="draftReset" class="px-3 py-1.5 rounded-md bg-slate-800 text-slate-300 hover:bg-red-900/60 border border-cardBorder">Reset draft</button>
+            </div>
+        </div>
+
+        <div id="draftClock"></div>
+
+        <div class="bg-cardBg border border-cardBorder rounded-xl p-5 shadow-sm">
+            <h3 class="font-semibold text-lg text-slate-100 mb-3">Draft setup</h3>
+            <div id="draftSetup" class="flex flex-wrap items-end gap-x-8 gap-y-4"></div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <div class="bg-cardBg border border-cardBorder rounded-xl p-5 shadow-sm">
+                <h3 class="font-semibold text-lg text-slate-100 mb-1">Available teams</h3>
+                <p class="text-xs text-slate-400 mb-4">Click a team to draft it for whoever is on the clock.</p>
+                <div id="draftAvail" class="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-4"></div>
+            </div>
+            <div class="bg-cardBg border border-cardBorder rounded-xl p-5 shadow-sm overflow-x-auto">
+                <h3 class="font-semibold text-lg text-slate-100 mb-4">Draft board</h3>
+                <div id="draftBoard"></div>
+            </div>
+        </div>
+
+        <div class="bg-cardBg border border-cardBorder rounded-xl p-5 shadow-sm">
+            <h3 class="font-semibold text-lg text-slate-100 mb-1">Rosters &amp; leaderboard</h3>
+            <p class="text-xs text-slate-400 mb-4">Rosters fill in as you draft. Rankings appear once win totals are entered at the end of the season.</p>
+            <div id="draftRosters" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4"></div>
+        </div>
+
+        <div class="bg-cardBg border border-cardBorder rounded-xl p-5 shadow-sm">
+            <h3 class="font-semibold text-lg text-slate-100 mb-1">Final team wins (end of season)</h3>
+            <p class="text-xs text-slate-400 mb-4">Leave this empty during the draft. At season's end, enter each team's win total and the leaderboard ranks everyone.</p>
+            <div id="winsTable" class="grid grid-cols-1 md:grid-cols-2 gap-x-8"></div>
+        </div>
+    </div>
+</main>
+
+<footer class="border-t border-cardBorder py-4 text-center text-xs text-slate-500">
+    Shruth • Raj • Uzair • Visshal — NBA Podcast Predictions
+</footer>
+
+<script>
+(() => {
+'use strict';
+const HOSTS = ['Shruth', 'Raj', 'Uzair', 'Visshal'];
+const EAST = ['Atlanta Hawks','Boston Celtics','Brooklyn Nets','Charlotte Hornets','Chicago Bulls','Cleveland Cavaliers','Detroit Pistons','Indiana Pacers','Miami Heat','Milwaukee Bucks','New York Knicks','Orlando Magic','Philadelphia 76ers','Toronto Raptors','Washington Wizards'];
+const WEST = ['Dallas Mavericks','Denver Nuggets','Golden State Warriors','Houston Rockets','LA Clippers','Los Angeles Lakers','Memphis Grizzlies','Minnesota Timberwolves','New Orleans Pelicans','Oklahoma City Thunder','Phoenix Suns','Portland Trail Blazers','Sacramento Kings','San Antonio Spurs','Utah Jazz'];
+const AWARDS = [
+    { id: 'mvp', label: 'MVP' },
+    { id: 'dpoy', label: 'Defensive Player of the Year (DPOY)' },
+    { id: 'roy', label: 'Rookie of the Year (ROY)' },
+    { id: 'sixman', label: 'Sixth Man of the Year (6MOY)' },
+    { id: 'mip', label: 'Most Improved Player (MIP)' },
+    { id: 'coy', label: 'Coach of the Year (COY)' },
+    { id: 'clutch', label: 'Clutch Player of the Year' }
+];
+
+const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+const tierCls = i => i < 6 ? 'text-blue-400' : i < 10 ? 'text-amber-400' : 'text-slate-500';
+
+function lsGet(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
+function lsSet(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
+function lsDel(k) { try { localStorage.removeItem(k); } catch (e) {} }
+
+let S = null;            // shared state from server
+let ws = null, retry = 0, peers = 1;
+let activeTab = lsGet('nba_tab') || 'Shruth';
+if (!HOSTS.includes(activeTab) && !['comparison', 'draft'].includes(activeTab)) activeTab = 'Shruth';
+let subTab = 'standings';
+let dragging = false;
+
+// ---------- connection ----------
+function setStatus(ok, text) {
+    $('statusDot').className = 'w-2 h-2 rounded-full ' + (ok ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500');
+    $('statusText').textContent = text;
+}
+function connect() {
+    const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+    const pc = lsGet('nba_passcode') || '';
+    ws = new WebSocket(`${proto}://${location.host}/ws?pc=${encodeURIComponent(pc)}`);
+    ws.onopen = () => { retry = 0; setStatus(true, 'Live'); };
+    ws.onmessage = e => {
+        let m; try { m = JSON.parse(e.data); } catch (err) { return; }
+        if (m.t === 'state') { S = m.state; render(); }
+        else if (m.t === 'peers') { peers = m.n; if (ws.readyState === 1) setStatus(true, `Live · ${peers} online`); }
+        else if (m.t === 'error') toast(m.msg);
+    };
+    ws.onclose = ev => {
+        setStatus(false, 'Reconnecting…');
+        if (ev.code === 4001) {
+            const p = prompt(lsGet('nba_passcode') ? 'Wrong passcode. Try again:' : 'Enter the passcode:');
+            if (p === null) { setStatus(false, 'Passcode needed. Reload to retry.'); return; }
+            lsSet('nba_passcode', p);
+            setTimeout(connect, 100);
+            return;
+        }
+        setTimeout(connect, Math.min(5000, 400 * 2 ** retry++));
+    };
+}
+function send(msg) {
+    if (!ws || ws.readyState !== 1) { toast('Offline. Change not saved.'); return false; }
+    ws.send(JSON.stringify(msg));
+    return true;
+}
+
+// ---------- tabs ----------
+function switchTab(tab) {
+    activeTab = tab;
+    lsSet('nba_tab', tab);
+    render();
+}
+function render() {
+    if (!S) return;
+    if (dragging) return;
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+        const on = btn.dataset.tab === activeTab;
+        btn.classList.toggle('bg-accent', on);
+        btn.classList.toggle('text-white', on);
+        btn.classList.toggle('text-slate-400', !on);
+    });
+    $('hostView').classList.toggle('hidden', activeTab === 'comparison' || activeTab === 'draft');
+    $('comparisonView').classList.toggle('hidden', activeTab !== 'comparison');
+    $('draftView').classList.toggle('hidden', activeTab !== 'draft');
+    if (activeTab === 'comparison') renderComparison();
+    else if (activeTab === 'draft') renderDraft();
+    else renderHost();
+}
+
+// ---------- host view ----------
+function renderHost() {
+    $('currentHostTitle').textContent = `${activeTab}'s Predictions`;
+    renderList('east');
+    renderList('west');
+    renderAwards();
+}
+function renderList(conf) {
+    const teams = S.predictions[activeTab][conf];
+    $(conf + 'List').innerHTML = teams.map((team, i) => `
+        <li data-team="${esc(team)}" class="flex items-center justify-between p-2.5 bg-slate-900/60 border border-cardBorder/60 rounded-lg text-sm text-slate-200 group hover:border-slate-500 transition-colors cursor-grab">
+            <div class="flex items-center gap-3">
+                <span class="w-6 text-center font-bold text-xs ${tierCls(i)}">${i + 1}</span>
+                <span class="font-medium">${esc(team)}</span>
+            </div>
+            <div class="flex items-center gap-1 opacity-80 group-hover:opacity-100">
+                <button data-act="move" data-conf="${conf}" data-i="${i}" data-d="-1" class="p-1 text-slate-400 hover:text-white rounded hover:bg-slate-800 disabled:opacity-30" ${i === 0 ? 'disabled' : ''}>
+                    <svg class="w-4 h-4 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7"></path></svg>
+                </button>
+                <button data-act="move" data-conf="${conf}" data-i="${i}" data-d="1" class="p-1 text-slate-400 hover:text-white rounded hover:bg-slate-800 disabled:opacity-30" ${i === teams.length - 1 ? 'disabled' : ''}>
+                    <svg class="w-4 h-4 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                </button>
+            </div>
+        </li>`).join('');
+}
+function setOrder(host, conf, list) {
+    S.predictions[host][conf] = list;
+    send({ t: 'order', host, conf, list });
+}
+function moveTeam(conf, i, d) {
+    const list = [...S.predictions[activeTab][conf]];
+    const j = i + d;
+    if (j < 0 || j >= list.length) return;
+    [list[i], list[j]] = [list[j], list[i]];
+    setOrder(activeTab, conf, list);
+    render();
+}
+function initSortable() {
+    if (typeof Sortable === 'undefined') return;
+    ['east', 'west'].forEach(conf => {
+        const el = $(conf + 'List');
+        Sortable.create(el, {
+            animation: 150,
+            onStart: () => { dragging = true; },
+            onEnd: () => {
+                dragging = false;
+                const list = [...el.children].map(li => li.dataset.team);
+                setOrder(activeTab, conf, list);
+                render();
+            }
+        });
+    });
+}
+function renderAwards() {
+    const c = $('awardsFormContainer');
+    if (c.dataset.host !== activeTab) {
+        c.dataset.host = activeTab;
+        c.innerHTML = AWARDS.map(a => `
+            <div class="space-y-1.5">
+                <label class="block text-xs font-semibold text-slate-300 uppercase tracking-wider">${a.label}</label>
+                <input type="text" maxlength="100" data-award="${a.id}" placeholder="Enter player/coach..."
+                       class="w-full bg-slate-900 border border-cardBorder rounded-lg px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-accent transition-colors" />
+            </div>`).join('');
+    }
+    c.querySelectorAll('input[data-award]').forEach(inp => {
+        if (document.activeElement !== inp) inp.value = S.predictions[activeTab].awards[inp.dataset.award] || '';
+    });
+}
+const timers = {};
+function debounced(key, fn, ms = 250) { clearTimeout(timers[key]); timers[key] = setTimeout(fn, ms); }
+
+// ---------- comparison ----------
+function renderComparison() {
+    const P = S.predictions;
+    ['east', 'west'].forEach(conf => {
+        $(conf === 'east' ? 'compEastTable' : 'compWestTable').innerHTML = Array.from({ length: 15 }, (_, i) => {
+            const same = new Set(HOSTS.map(h => P[h][conf][i])).size === 1;
+            return `<tr class="hover:bg-slate-800/40">
+                <td class="py-2.5 px-3 text-center font-bold text-xs ${tierCls(i)}">${i + 1}</td>
+                ${HOSTS.map(h => `<td class="py-2.5 px-4 font-medium ${same ? 'text-emerald-300 bg-emerald-500/10' : 'text-slate-200'}">${esc(P[h][conf][i] || '-')}</td>`).join('')}
+            </tr>`;
+        }).join('');
+    });
+    renderDivergence();
+    $('compAwardsTable').innerHTML = AWARDS.map(a => {
+        const counts = {};
+        HOSTS.forEach(h => { const n = (P[h].awards[a.id] || '').trim().toLowerCase(); if (n) counts[n] = (counts[n] || 0) + 1; });
+        return `<tr class="hover:bg-slate-800/40"><td class="py-3 px-4 font-semibold text-slate-300 text-xs uppercase">${a.label}</td>
+            ${HOSTS.map(h => {
+                const raw = (P[h].awards[a.id] || '').trim();
+                const c = raw ? counts[raw.toLowerCase()] : 0;
+                const cls = c >= 3 ? 'text-emerald-300 bg-emerald-500/10' : c === 2 ? 'text-amber-300 bg-amber-500/10' : 'text-slate-200';
+                return `<td class="py-3 px-4 font-medium ${cls}">${raw ? esc(raw) : '<span class="text-slate-600">—</span>'}</td>`;
+            }).join('')}</tr>`;
+    }).join('');
+    $('comparisonStandings').classList.toggle('hidden', subTab !== 'standings');
+    $('comparisonAwards').classList.toggle('hidden', subTab !== 'awards');
+    $('compBtnStandings').className = 'px-3 py-1.5 rounded-md font-medium ' + (subTab === 'standings' ? 'bg-accent text-white' : 'bg-slate-800 text-slate-300 hover:bg-slate-700');
+    $('compBtnAwards').className = 'px-3 py-1.5 rounded-md font-medium ' + (subTab === 'awards' ? 'bg-accent text-white' : 'bg-slate-800 text-slate-300 hover:bg-slate-700');
+}
+function renderDivergence() {
+    const P = S.predictions;
+    $('divergenceContainer').innerHTML = [['east', 'Eastern'], ['west', 'Western']].map(([conf, label]) => {
+        const rows = P[HOSTS[0]][conf].map(team => {
+            const seeds = HOSTS.map(h => P[h][conf].indexOf(team) + 1);
+            return { team, seeds, spread: Math.max(...seeds) - Math.min(...seeds), avg: seeds.reduce((a, b) => a + b, 0) / seeds.length };
+        });
+        const top = [...rows].sort((a, b) => b.spread - a.spread || a.avg - b.avg).slice(0, 5);
+        const agree = rows.filter(r => r.spread <= 1).sort((a, b) => a.avg - b.avg);
+        return `<div>
+            <h4 class="text-sm font-semibold text-slate-200 mb-2">${label}: biggest disagreements</h4>
+            <table class="w-full text-xs text-left text-slate-300 mb-4">
+                <thead class="text-slate-400 uppercase"><tr><th class="py-1.5">Team</th>${HOSTS.map(h => `<th>${h}</th>`).join('')}<th>Spread</th></tr></thead>
+                <tbody class="divide-y divide-cardBorder/40">${top.map(r => `<tr><td class="py-1.5 font-medium text-slate-200">${esc(r.team)}</td>${r.seeds.map(s => `<td>${s}</td>`).join('')}<td class="text-red-400 font-bold">${r.spread}</td></tr>`).join('')}</tbody>
+            </table>
+            <h4 class="text-sm font-semibold text-slate-200 mb-2">${label}: near-consensus (spread ≤ 1)</h4>
+            <p class="text-xs text-slate-300">${agree.length ? agree.map(r => `<span class="inline-block bg-emerald-500/10 text-emerald-300 rounded px-2 py-0.5 mr-1 mb-1">${esc(r.team)} (~${Math.round(r.avg)})</span>`).join('') : '<span class="text-slate-500">None yet</span>'}</p>
+        </div>`;
+    }).join('');
+}
+
+// ---------- wins draft ----------
+const drafterAt = (d, n) => { const k = d.order.length, r = Math.floor(n / k), p = n % k; return d.order[r % 2 === 0 ? p : k - 1 - p]; };
+const ALL = [...EAST, ...WEST].sort();
+function draftStats() {
+    const d = S.draft, wins = S.wins;
+    const owner = new Map(d.picks.map(p => [p.team, p.host]));
+    return HOSTS.map(h => {
+        const teams = d.picks.filter(p => p.host === h).map(p => p.team);
+        const entered = teams.filter(t => wins[t] != null).length;
+        return { host: h, teams, total: teams.reduce((s, t) => s + (wins[t] || 0), 0), entered };
+    }).sort((a, b) => b.total - a.total || a.host.localeCompare(b.host));
+}
+function renderDraft() {
+    const d = S.draft, k = d.order.length, total = d.rounds * k, n = d.picks.length, done = n >= total;
+    const owner = new Map(d.picks.map(p => [p.team, p.host]));
+    const locked = n > 0;
+
+    // on the clock
+    if (done) {
+        const best = draftStats()[0];
+        const anyWins = Object.keys(S.wins).length > 0;
+        $('draftClock').innerHTML = `<div class="rounded-xl border border-emerald-500/40 bg-emerald-500/10 px-5 py-4 text-emerald-200 font-semibold">Draft complete.${anyWins ? ` ${esc(best.host)} leads with ${best.total} wins.` : ' Enter team wins below to start the leaderboard.'}</div>`;
+    } else {
+        const who = drafterAt(d, n), r = Math.floor(n / k) + 1, p = (n % k) + 1;
+        const last = d.picks[n - 1];
+        $('draftClock').innerHTML = `<div class="rounded-xl border border-accent/50 bg-accent/10 px-5 py-4 pop" data-n="${n}">
+            <div class="text-xs uppercase tracking-wider text-blue-300">Round ${r} · Pick ${p} · Overall ${n + 1} of ${total}</div>
+            <div class="text-2xl font-bold text-white mt-1">${esc(who)} is on the clock</div>
+            ${last ? `<div class="text-xs text-slate-400 mt-1">Last pick: ${esc(last.host)} took ${esc(last.team)}</div>` : ''}
+        </div>`;
+    }
+
+    // setup
+    const btn = 'px-2 py-1 rounded bg-slate-800 border border-cardBorder text-slate-300 hover:bg-slate-700 disabled:opacity-30 disabled:hover:bg-slate-800';
+    $('draftSetup').innerHTML = `
+        <div>
+            <div class="text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2">Pick order (round 1)</div>
+            <div class="flex flex-wrap gap-2">${d.order.map((h, i) => `
+                <div class="flex items-center gap-1 bg-slate-900/60 border border-cardBorder rounded-lg px-2 py-1.5 text-sm">
+                    <span class="text-xs text-slate-500 w-4">${i + 1}</span><span class="font-medium text-slate-100 mr-1">${esc(h)}</span>
+                    <button data-act="orderMove" data-i="${i}" data-d="-1" class="${btn} text-xs" ${locked || i === 0 ? 'disabled' : ''}>←</button>
+                    <button data-act="orderMove" data-i="${i}" data-d="1" class="${btn} text-xs" ${locked || i === k - 1 ? 'disabled' : ''}>→</button>
+                </div>`).join('')}
+                <button data-act="shuffle" class="${btn} text-sm px-3" ${locked ? 'disabled' : ''}>🎲 Randomize</button>
+            </div>
+        </div>
+        <div>
+            <label class="text-xs font-semibold text-slate-300 uppercase tracking-wider block mb-2">Rounds (teams each)</label>
+            <select id="roundsSel" class="bg-slate-900 border border-cardBorder rounded-lg px-3 py-2 text-sm text-slate-100 disabled:opacity-40" ${locked ? 'disabled' : ''}>
+                ${[1, 2, 3, 4, 5, 6, 7].map(r => `<option value="${r}" ${r === d.rounds ? 'selected' : ''}>${r} (${r * k} of 30 teams drafted)</option>`).join('')}
+            </select>
+        </div>
+        ${locked ? '<p class="text-xs text-slate-400 basis-full">Setup is locked once picks start. Use “Reset draft” to change it.</p>' : ''}`;
+
+    // available teams
+    const col = (title, list, dot) => `<div>
+        <div class="text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2 flex items-center gap-2"><span class="w-2 h-2 rounded-full ${dot}"></span>${title}</div>
+        <div class="space-y-1">${list.map(t => owner.has(t)
+            ? `<div class="flex justify-between items-center px-2.5 py-1.5 rounded-md bg-slate-900/30 text-xs text-slate-500 line-through"><span>${esc(t)}</span><span class="no-underline" style="text-decoration:none">${esc(owner.get(t))}</span></div>`
+            : `<button data-act="pick" data-team="${esc(t)}" class="w-full text-left px-2.5 py-1.5 rounded-md bg-slate-900/60 border border-cardBorder/60 text-sm text-slate-100 hover:border-accent hover:bg-accent/10 transition-colors disabled:opacity-40 disabled:cursor-not-allowed" ${done ? 'disabled' : ''}>${esc(t)}</button>`).join('')}
+        </div></div>`;
+    $('draftAvail').innerHTML = col('East', EAST, 'bg-blue-500') + col('West', WEST, 'bg-red-500');
+
+    // board
+    let head = `<tr><th class="py-2 px-2 text-xs text-slate-500">Rd</th>${d.order.map(h => `<th class="py-2 px-2 text-xs text-slate-300 uppercase text-left">${esc(h)}</th>`).join('')}</tr>`;
+    let body = '';
+    for (let r = 0; r < d.rounds; r++) {
+        body += `<tr class="border-t border-cardBorder/40"><td class="py-2 px-2 text-xs text-slate-500 text-center">${r + 1}${r % 2 ? '↩' : ''}</td>`;
+        for (let c = 0; c < k; c++) {
+            const slot = r * k + (r % 2 === 0 ? c : k - 1 - c);
+            const pk = d.picks[slot];
+            const isNow = slot === n;
+            body += `<td class="py-2 px-2 text-xs ${isNow ? 'bg-accent/15 outline outline-1 outline-accent/60 text-blue-200' : pk ? 'text-slate-100 font-medium' : 'text-slate-600'}">${pk ? esc(pk.team) : isNow ? 'on the clock' : '·'}</td>`;
+        }
+        body += '</tr>';
+    }
+    $('draftBoard').innerHTML = `<table class="w-full min-w-[420px]"><thead>${head}</thead><tbody>${body}</tbody></table>`;
+
+    // leaderboard
+    const stats = draftStats();
+    const anyWins = stats.some(s => s.entered > 0);
+    $('draftRosters').innerHTML = stats.map((s, i) => `
+        <div class="rounded-xl border ${anyWins && i === 0 ? 'border-amber-400/60 bg-amber-400/5' : 'border-cardBorder bg-slate-900/40'} p-4">
+            <div class="flex items-baseline justify-between mb-3">
+                <div class="font-semibold text-slate-100">${anyWins ? `<span class="text-slate-500 mr-1">#${i + 1}</span>` : ''}${esc(s.host)}</div>
+                <div class="text-2xl font-bold ${anyWins && i === 0 ? 'text-amber-300' : 'text-white'}">${anyWins ? s.total : '—'}<span class="text-xs text-slate-500 font-normal ml-1">${anyWins ? 'W' : ''}</span></div>
+            </div>
+            <ul class="space-y-1 text-sm">${s.teams.length ? s.teams.map(t => `
+                <li class="flex justify-between text-slate-300"><span>${esc(t)}</span><span class="text-slate-400 tabular-nums">${S.wins[t] != null ? S.wins[t] : '—'}</span></li>`).join('') : '<li class="text-slate-600 text-xs">No picks yet</li>'}</ul>
+        </div>`).join('');
+
+    // wins table (built once; values updated in place so typing isn't interrupted)
+    const wt = $('winsTable');
+    if (!wt.dataset.built) {
+        wt.dataset.built = '1';
+        wt.innerHTML = ALL.map(t => `
+            <div class="flex items-center justify-between gap-3 py-1.5 border-b border-cardBorder/30">
+                <div class="min-w-0"><div class="text-sm text-slate-200 truncate">${esc(t)}</div><div class="text-xs text-slate-500" data-owner="${esc(t)}"></div></div>
+                <input type="number" min="0" max="82" inputmode="numeric" data-wins="${esc(t)}" placeholder="W"
+                       class="w-20 bg-slate-900 border border-cardBorder rounded-lg px-2 py-1.5 text-sm text-right text-slate-100 focus:outline-none focus:border-accent" />
+            </div>`).join('');
+    }
+    wt.querySelectorAll('[data-owner]').forEach(el => { el.textContent = owner.get(el.dataset.owner) || 'undrafted'; });
+    wt.querySelectorAll('input[data-wins]').forEach(inp => {
+        if (document.activeElement !== inp) inp.value = S.wins[inp.dataset.wins] != null ? S.wins[inp.dataset.wins] : '';
+    });
+}
+
+// ---------- text / export ----------
+function hostText(host) {
+    const d = S.predictions[host];
+    const fmt = l => l.map((t, i) => `${i + 1}. ${t}`).join('\n');
+    return `🏀 ${host}'s Predictions\n\nEAST\n${fmt(d.east)}\n\nWEST\n${fmt(d.west)}\n\nAWARDS\n${AWARDS.map(a => `${a.label}: ${d.awards[a.id] || '—'}`).join('\n')}`;
+}
+function draftText() {
+    const stats = draftStats();
+    const anyWins = stats.some(s => s.entered > 0);
+    return '🏆 Wins Draft' + (anyWins ? ' — Standings' : '') + '\n\n' + stats.map((s, i) =>
+        `${anyWins ? `#${i + 1} ` : ''}${s.host}${anyWins ? ` — ${s.total} W` : ''}\n` +
+        (s.teams.length ? s.teams.map(t => `  • ${t}${S.wins[t] != null ? ` (${S.wins[t]})` : ''}`).join('\n') : '  (no picks)')).join('\n\n');
+}
+function copy(text) {
+    const fallback = () => {
+        const ta = document.createElement('textarea');
+        ta.value = text; document.body.appendChild(ta); ta.select();
+        try { document.execCommand('copy'); toast('Copied to clipboard'); } catch (e) { toast('Copy failed'); }
+        document.body.removeChild(ta);
+    };
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(() => toast('Copied to clipboard'), fallback);
+    else fallback();
+}
+function toast(msg) {
+    const t = document.createElement('div');
+    t.textContent = msg;
+    t.className = 'fixed bottom-6 left-1/2 -translate-x-1/2 bg-slate-100 text-slate-900 text-sm font-medium px-4 py-2 rounded-lg shadow-lg z-50';
+    document.body.appendChild(t);
+    setTimeout(() => t.remove(), 2200);
+}
+
+// ---------- events ----------
+document.addEventListener('click', e => {
+    const el = e.target.closest('[data-act]');
+    if (!el) return;
+    const a = el.dataset.act;
+    if (a === 'tab') switchTab(el.dataset.tab);
+    else if (a === 'move') moveTeam(el.dataset.conf, +el.dataset.i, +el.dataset.d);
+    else if (a === 'copyHost') copy(hostText(activeTab));
+    else if (a === 'copyAll') copy(HOSTS.map(hostText).join('\n\n———\n\n'));
+    else if (a === 'copyDraft') copy(draftText());
+    else if (a === 'resetHost') { if (confirm(`Reset ${activeTab}'s standings and awards to defaults? This changes it for everyone.`)) send({ t: 'reset', host: activeTab }); }
+    else if (a === 'subtab') { subTab = el.dataset.sub; render(); }
+    else if (a === 'exportJSON') {
+        const blob = new Blob([JSON.stringify(S, null, 2)], { type: 'application/json' });
+        const l = document.createElement('a');
+        l.href = URL.createObjectURL(blob); l.download = 'nba_podcast_predictions.json'; l.click();
+        URL.revokeObjectURL(l.href);
+    }
+    else if (a === 'importJSON') $('importFile').click();
+    else if (a === 'pick') send({ t: 'pick', team: el.dataset.team, n: S.draft.picks.length });
+    else if (a === 'undo') send({ t: 'undo', n: S.draft.picks.length });
+    else if (a === 'draftReset') { if (confirm('Reset the whole draft? All picks are cleared for everyone (team wins are kept).')) send({ t: 'draftReset' }); }
+    else if (a === 'orderMove') {
+        const o = [...S.draft.order], i = +el.dataset.i, j = i + +el.dataset.d;
+        if (j < 0 || j >= o.length) return;
+        [o[i], o[j]] = [o[j], o[i]];
+        send({ t: 'draftConfig', order: o, rounds: S.draft.rounds });
+    }
+    else if (a === 'shuffle') {
+        const o = [...S.draft.order];
+        for (let i = o.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [o[i], o[j]] = [o[j], o[i]]; }
+        send({ t: 'draftConfig', order: o, rounds: S.draft.rounds });
+    }
+});
+document.addEventListener('change', e => {
+    if (e.target.id === 'roundsSel') send({ t: 'draftConfig', order: S.draft.order, rounds: +e.target.value });
+    else if (e.target.id === 'importFile') {
+        const f = e.target.files[0];
+        if (!f) return;
+        const r = new FileReader();
+        r.onload = () => {
+            try {
+                const data = JSON.parse(r.result);
+                // new backups hold {predictions, draft, wins}; older ones are just the host map
+                send({ t: 'import', predictions: data.predictions || data, draft: data.draft, wins: data.wins });
+            } catch (err) { toast('Invalid file'); }
+        };
+        r.readAsText(f);
+        e.target.value = '';
+    }
+});
+document.addEventListener('input', e => {
+    const t = e.target;
+    if (t.dataset && t.dataset.award) {
+        const host = $('awardsFormContainer').dataset.host, id = t.dataset.award, value = t.value;
+        S.predictions[host].awards[id] = value;
+        debounced('award:' + host + id, () => send({ t: 'award', host, id, value }));
+    } else if (t.dataset && t.dataset.wins) {
+        const team = t.dataset.wins, raw = t.value.trim();
+        const wins = raw === '' ? null : parseInt(raw, 10);
+        if (wins !== null && (isNaN(wins) || wins < 0 || wins > 82)) return;
+        if (wins === null) delete S.wins[team]; else S.wins[team] = wins;
+        debounced('wins:' + team, () => send({ t: 'wins', team, wins }));
+    }
+});
+
+initSortable();
+connect();
+})();
+</script>
+</body>
+</html>
