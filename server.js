@@ -11,7 +11,7 @@ const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, 'data');
 const PASSCODE = process.env.PASSCODE || '';
 const STATE_FILE = path.join(DATA_DIR, 'state.json');
 
-const HOSTS = ['Shruth', 'Raj', 'Uzair', 'Visshal'];
+const HOSTS = ['Shruth', 'Raj', 'Uzair', 'Visshal', 'Omkar'];
 const EAST = [
   'Atlanta Hawks', 'Boston Celtics', 'Brooklyn Nets', 'Charlotte Hornets', 'Chicago Bulls',
   'Cleveland Cavaliers', 'Detroit Pistons', 'Indiana Pacers', 'Miami Heat', 'Milwaukee Bucks',
@@ -25,7 +25,7 @@ const WEST = [
 ];
 const ALL_TEAMS = new Set([...EAST, ...WEST]);
 const AWARD_IDS = ['mvp', 'dpoy', 'roy', 'sixman', 'mip', 'coy', 'clutch'];
-const MAX_ROUNDS = Math.floor(ALL_TEAMS.size / HOSTS.length); // 7
+const MAX_ROUNDS = Math.floor(ALL_TEAMS.size / HOSTS.length); // 6
 
 // ---------- state ----------
 const freshHost = () => ({
