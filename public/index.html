@@ -37,11 +37,12 @@
                 <span id="statusText" class="text-slate-300">Connecting…</span>
             </div>
         </div>
-        <nav class="flex bg-slate-900/80 p-1 rounded-lg border border-cardBorder overflow-x-auto text-sm font-medium" id="tabNav">
+        <nav class="flex flex-wrap gap-1 bg-slate-900/80 p-1 rounded-lg border border-cardBorder text-sm font-medium" id="tabNav">
             <button data-act="tab" data-tab="Shruth" class="tab-btn px-4 py-2 rounded-md transition-colors text-slate-400 hover:text-white">Shruth</button>
             <button data-act="tab" data-tab="Raj" class="tab-btn px-4 py-2 rounded-md transition-colors text-slate-400 hover:text-white">Raj</button>
             <button data-act="tab" data-tab="Uzair" class="tab-btn px-4 py-2 rounded-md transition-colors text-slate-400 hover:text-white">Uzair</button>
             <button data-act="tab" data-tab="Visshal" class="tab-btn px-4 py-2 rounded-md transition-colors text-slate-400 hover:text-white">Visshal</button>
+            <button data-act="tab" data-tab="Omkar" class="tab-btn px-4 py-2 rounded-md transition-colors text-slate-400 hover:text-white">Omkar</button>
             <button data-act="tab" data-tab="comparison" class="tab-btn px-4 py-2 rounded-md transition-colors text-slate-400 hover:text-white whitespace-nowrap">Side-by-Side</button>
             <button data-act="tab" data-tab="draft" class="tab-btn px-4 py-2 rounded-md transition-colors text-slate-400 hover:text-white whitespace-nowrap">🏆 Wins Draft</button>
         </nav>
@@ -98,14 +99,14 @@
             <div class="bg-cardBg border border-cardBorder rounded-xl p-5 shadow-sm overflow-x-auto">
                 <h3 class="font-semibold text-lg text-slate-100 mb-4 flex items-center gap-2"><span class="w-2.5 h-2.5 rounded-full bg-blue-500"></span>Eastern Conference Standings</h3>
                 <table class="w-full text-sm text-left text-slate-300 min-w-[600px]">
-                    <thead class="text-xs text-slate-400 uppercase bg-slate-900/60 border-b border-cardBorder"><tr><th class="py-3 px-3 w-12 text-center">Seed</th><th class="py-3 px-4">Shruth</th><th class="py-3 px-4">Raj</th><th class="py-3 px-4">Uzair</th><th class="py-3 px-4">Visshal</th></tr></thead>
+                    <thead class="text-xs text-slate-400 uppercase bg-slate-900/60 border-b border-cardBorder"><tr><th class="py-3 px-3 w-12 text-center">Seed</th><th class="py-3 px-4">Shruth</th><th class="py-3 px-4">Raj</th><th class="py-3 px-4">Uzair</th><th class="py-3 px-4">Visshal</th><th class="py-3 px-4">Omkar</th></tr></thead>
                     <tbody id="compEastTable" class="divide-y divide-cardBorder/40"></tbody>
                 </table>
             </div>
             <div class="bg-cardBg border border-cardBorder rounded-xl p-5 shadow-sm overflow-x-auto">
                 <h3 class="font-semibold text-lg text-slate-100 mb-4 flex items-center gap-2"><span class="w-2.5 h-2.5 rounded-full bg-red-500"></span>Western Conference Standings</h3>
                 <table class="w-full text-sm text-left text-slate-300 min-w-[600px]">
-                    <thead class="text-xs text-slate-400 uppercase bg-slate-900/60 border-b border-cardBorder"><tr><th class="py-3 px-3 w-12 text-center">Seed</th><th class="py-3 px-4">Shruth</th><th class="py-3 px-4">Raj</th><th class="py-3 px-4">Uzair</th><th class="py-3 px-4">Visshal</th></tr></thead>
+                    <thead class="text-xs text-slate-400 uppercase bg-slate-900/60 border-b border-cardBorder"><tr><th class="py-3 px-3 w-12 text-center">Seed</th><th class="py-3 px-4">Shruth</th><th class="py-3 px-4">Raj</th><th class="py-3 px-4">Uzair</th><th class="py-3 px-4">Visshal</th><th class="py-3 px-4">Omkar</th></tr></thead>
                     <tbody id="compWestTable" class="divide-y divide-cardBorder/40"></tbody>
                 </table>
             </div>
@@ -118,7 +119,7 @@
         <div id="comparisonAwards" class="hidden bg-cardBg border border-cardBorder rounded-xl p-5 shadow-sm overflow-x-auto">
             <h3 class="font-semibold text-lg text-slate-100 mb-4">Season Awards Comparison</h3>
             <table class="w-full text-sm text-left text-slate-300 min-w-[600px]">
-                <thead class="text-xs text-slate-400 uppercase bg-slate-900/60 border-b border-cardBorder"><tr><th class="py-3 px-4 w-48">Award</th><th class="py-3 px-4">Shruth</th><th class="py-3 px-4">Raj</th><th class="py-3 px-4">Uzair</th><th class="py-3 px-4">Visshal</th></tr></thead>
+                <thead class="text-xs text-slate-400 uppercase bg-slate-900/60 border-b border-cardBorder"><tr><th class="py-3 px-4 w-48">Award</th><th class="py-3 px-4">Shruth</th><th class="py-3 px-4">Raj</th><th class="py-3 px-4">Uzair</th><th class="py-3 px-4">Visshal</th><th class="py-3 px-4">Omkar</th></tr></thead>
                 <tbody id="compAwardsTable" class="divide-y divide-cardBorder/40"></tbody>
             </table>
         </div>
@@ -172,13 +173,13 @@
 </main>
 
 <footer class="border-t border-cardBorder py-4 text-center text-xs text-slate-500">
-    Shruth • Raj • Uzair • Visshal — NBA Podcast Predictions
+    Shruth • Raj • Uzair • Visshal • Omkar — NBA Podcast Predictions
 </footer>
 
 <script>
 (() => {
 'use strict';
-const HOSTS = ['Shruth', 'Raj', 'Uzair', 'Visshal'];
+const HOSTS = ['Shruth', 'Raj', 'Uzair', 'Visshal', 'Omkar'];
 const EAST = ['Atlanta Hawks','Boston Celtics','Brooklyn Nets','Charlotte Hornets','Chicago Bulls','Cleveland Cavaliers','Detroit Pistons','Indiana Pacers','Miami Heat','Milwaukee Bucks','New York Knicks','Orlando Magic','Philadelphia 76ers','Toronto Raptors','Washington Wizards'];
 const WEST = ['Dallas Mavericks','Denver Nuggets','Golden State Warriors','Houston Rockets','LA Clippers','Los Angeles Lakers','Memphis Grizzlies','Minnesota Timberwolves','New Orleans Pelicans','Oklahoma City Thunder','Phoenix Suns','Portland Trail Blazers','Sacramento Kings','San Antonio Spurs','Utah Jazz'];
 const AWARDS = [
