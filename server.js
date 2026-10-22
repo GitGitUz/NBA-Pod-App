@@ -9,6 +9,9 @@ const { WebSocketServer } = require('ws');
 const PORT = process.env.PORT || 3000;
 const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, 'data');
 const PASSCODE = process.env.PASSCODE || '';
+const NBA_API_KEY = process.env.BALLDONTLIE_API_KEY || '';
+const NBA_API_BASE = 'https://api.balldontlie.io/v1/games';
+const NBA_SYNC_INTERVAL = 30 * 60 * 1000;
 const STATE_FILE = path.join(DATA_DIR, 'state.json');
 
 const HOSTS = ['Shruth', 'Raj', 'Uzair', 'Visshal', 'Omkar'];
@@ -33,10 +36,16 @@ const freshHost = () => ({
   west: [...WEST],
   awards: Object.fromEntries(AWARD_IDS.map(a => [a, '']))
 });
+function currentNbaSeason() {
+  const now = new Date();
+  return now.getUTCMonth() >= 7 ? now.getUTCFullYear() : now.getUTCFullYear() - 1;
+}
 const freshState = () => ({
   predictions: Object.fromEntries(HOSTS.map(h => [h, freshHost()])),
   draft: { order: [...HOSTS], rounds: MAX_ROUNDS, picks: [] },
-  wins: {}
+  wins: {},
+  nbaGames: {},
+  winsMeta: { season: currentNbaSeason(), lastUpdatedAt: null, status: NBA_API_KEY ? 'waiting' : 'not_configured', error: null, fullSyncComplete: false }
 });
 
 const sameSet = (a, b) =>
@@ -72,6 +81,16 @@ function normalize(s) {
   }
   if (s.wins && typeof s.wins === 'object') {
     for (const [t, w] of Object.entries(s.wins)) if (ALL_TEAMS.has(t) && Number.isInteger(w) && w >= 0 && w <= 82) out.wins[t] = w;
+  }
+  if (s.nbaGames && typeof s.nbaGames === 'object') {
+    for (const [id, g] of Object.entries(s.nbaGames)) {
+      if (g && ALL_TEAMS.has(g.homeTeam) && ALL_TEAMS.has(g.visitorTeam) && Number.isFinite(g.homeScore) && Number.isFinite(g.visitorScore) && Number(g.season) === currentNbaSeason()) {
+        out.nbaGames[id] = { homeTeam: g.homeTeam, visitorTeam: g.visitorTeam, homeScore: g.homeScore, visitorScore: g.visitorScore, season: currentNbaSeason(), date: cleanStr(g.date) };
+      }
+    }
+  }
+  if (s.winsMeta && typeof s.winsMeta === 'object' && Number(s.winsMeta.season) === currentNbaSeason()) {
+    out.winsMeta = { ...out.winsMeta, season: currentNbaSeason(), lastUpdatedAt: typeof s.winsMeta.lastUpdatedAt === 'string' ? s.winsMeta.lastUpdatedAt : null, status: typeof s.winsMeta.status === 'string' ? s.winsMeta.status : (NBA_API_KEY ? 'waiting' : 'not_configured'), error: typeof s.winsMeta.error === 'string' ? s.winsMeta.error : null, fullSyncComplete: s.winsMeta.fullSyncComplete === true };
   }
   return out;
 }
@@ -170,14 +189,98 @@ function handle(msg) {
       return null;
     }
     case 'wins': {
-      if (!ALL_TEAMS.has(msg.team)) return 'Unknown team';
-      if (msg.wins === null) { delete state.wins[msg.team]; return null; }
-      if (!Number.isInteger(msg.wins) || msg.wins < 0 || msg.wins > 82) return 'Wins must be 0-82';
-      state.wins[msg.team] = msg.wins;
-      return null;
+      return 'Team wins are synced automatically from BALLDONTLIE.';
     }
     default:
       return 'Unknown message';
+  }
+}
+
+
+// ---------- automatic regular-season win sync ----------
+const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
+let nbaSyncRunning = false;
+function recalculateWins() {
+  const wins = {};
+  for (const team of ALL_TEAMS) wins[team] = 0;
+  for (const g of Object.values(state.nbaGames)) {
+    if (g.season !== currentNbaSeason() || g.homeScore === g.visitorScore) continue;
+    wins[g.homeScore > g.visitorScore ? g.homeTeam : g.visitorTeam]++;
+  }
+  state.wins = wins;
+}
+function nbaSeasonDates() {
+  const season = currentNbaSeason();
+  const start = new Date(Date.UTC(season, 7, 1));
+  return { season, startDate: start.toISOString().slice(0, 10), endDate: new Date().toISOString().slice(0, 10) };
+}
+async function fetchGamesPage(params) {
+  const url = new URL(NBA_API_BASE);
+  for (const [key, value] of Object.entries(params)) if (value !== undefined && value !== null && value !== '') url.searchParams.set(key, String(value));
+  const response = await fetch(url, { headers: { Authorization: NBA_API_KEY }, signal: AbortSignal.timeout(20000) });
+  if (response.status === 429) {
+    const retryAfter = Number(response.headers.get('retry-after')) || 60;
+    throw Object.assign(new Error('BALLDONTLIE rate limit reached; retrying later.'), { retryAfter: retryAfter * 1000 });
+  }
+  if (!response.ok) throw new Error('BALLDONTLIE request failed (HTTP ' + response.status + '). Check the API key and account access.');
+  return response.json();
+}
+async function syncNbaWins() {
+  if (!NBA_API_KEY || nbaSyncRunning) return;
+  nbaSyncRunning = true;
+  const { season, startDate, endDate } = nbaSeasonDates();
+  const hadFullSync = state.winsMeta && state.winsMeta.season === season && state.winsMeta.fullSyncComplete;
+  if (!hadFullSync) state.nbaGames = {};
+  state.winsMeta = { season, lastUpdatedAt: state.winsMeta?.lastUpdatedAt || null, status: 'syncing', error: null, fullSyncComplete: hadFullSync };
+  broadcastState();
+  try {
+    let cursor = null;
+    let pages = 0;
+    do {
+      const params = {
+        'seasons[]': season,
+        season_type: 'regular',
+        per_page: 100,
+        ...(hadFullSync ? { start_date: new Date(Date.now() - 7 * 86400000).toISOString().slice(0, 10) } : { start_date: startDate }),
+        end_date: endDate,
+        ...(cursor !== null ? { cursor } : {})
+      };
+      let payload;
+      try {
+        payload = await fetchGamesPage(params);
+      } catch (err) {
+        if (err.retryAfter && pages < 1) {
+          await sleep(err.retryAfter);
+          payload = await fetchGamesPage(params);
+        } else throw err;
+      }
+      const games = Array.isArray(payload.data) ? payload.data : [];
+      for (const g of games) {
+        if (Number(g.season) !== season || g.status_state !== 'final' || g.postseason === true) continue;
+        const homeTeam = g.home_team?.full_name;
+        const visitorTeam = g.visitor_team?.full_name;
+        const homeScore = Number(g.home_team_score);
+        const visitorScore = Number(g.visitor_team_score);
+        if (!ALL_TEAMS.has(homeTeam) || !ALL_TEAMS.has(visitorTeam) || !Number.isFinite(homeScore) || !Number.isFinite(visitorScore) || homeScore === visitorScore) continue;
+        state.nbaGames[String(g.id)] = { homeTeam, visitorTeam, homeScore, visitorScore, season, date: String(g.date || '') };
+      }
+      cursor = payload.meta?.next_cursor ?? null;
+      pages++;
+      if (cursor !== null) await sleep(12500); // stay within the free tier's conservative request limit
+    } while (cursor !== null && pages < 40);
+    if (cursor !== null) throw new Error('Sync stopped before all game pages were read. Will continue on the next scheduled sync.');
+    recalculateWins();
+    state.winsMeta = { season, lastUpdatedAt: new Date().toISOString(), status: 'ok', error: null, fullSyncComplete: true };
+    scheduleSave();
+    broadcastState();
+    console.log('NBA regular-season wins synced:', Object.keys(state.nbaGames).length, 'final games for season', season);
+  } catch (err) {
+    state.winsMeta = { season, lastUpdatedAt: state.winsMeta?.lastUpdatedAt || null, status: 'error', error: String(err.message || err).slice(0, 220), fullSyncComplete: hadFullSync };
+    scheduleSave();
+    broadcastState();
+    console.error('NBA wins sync failed:', err.message || err);
+  } finally {
+    nbaSyncRunning = false;
   }
 }
 
@@ -245,5 +348,11 @@ process.on('SIGTERM', shutdown);
 process.on('SIGINT', shutdown);
 
 server.listen(PORT, () => {
-  console.log(`Listening on :${PORT} | data: ${STATE_FILE} | passcode: ${PASSCODE ? 'on' : 'OFF'}`);
+  console.log(`Listening on :${PORT} | data: ${STATE_FILE} | passcode: ${PASSCODE ? 'on' : 'OFF'} | BALLDONTLIE: ${NBA_API_KEY ? 'configured' : 'missing API key'}`);
+  if (NBA_API_KEY) {
+    syncNbaWins();
+    setInterval(syncNbaWins, NBA_SYNC_INTERVAL);
+  } else {
+    state.winsMeta = { season: currentNbaSeason(), lastUpdatedAt: null, status: 'not_configured', error: 'Set BALLDONTLIE_API_KEY in Railway variables to enable automatic wins.', fullSyncComplete: false };
+  }
 });
