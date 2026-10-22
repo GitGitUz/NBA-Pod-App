@@ -157,9 +157,6 @@ function handle(msg) {
         const d = normalize({ draft: msg.draft }).draft;
         if (d.picks.length || msg.draft.picks) { state.draft = d; n++; }
       }
-      if (msg.wins && typeof msg.wins === 'object') {
-        state.wins = normalize({ wins: msg.wins }).wins; n++;
-      }
       return n ? null : 'No valid data in file';
     }
     case 'pick': {
