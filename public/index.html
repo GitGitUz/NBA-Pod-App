@@ -110,11 +110,7 @@
                     <tbody id="compWestTable" class="divide-y divide-cardBorder/40"></tbody>
                 </table>
             </div>
-            <div class="bg-cardBg border border-cardBorder rounded-xl p-5 shadow-sm">
-                <h3 class="font-semibold text-lg text-slate-100 mb-1">Consensus vs. Disagreement</h3>
-                <p class="text-xs text-slate-400 mb-4">Spread = gap between a team's highest and lowest seed across the four hosts. Green cells above mean all four picked the same team for that seed.</p>
-                <div id="divergenceContainer" class="grid grid-cols-1 lg:grid-cols-2 gap-6"></div>
-            </div>
+        </div>
         </div>
         <div id="comparisonAwards" class="hidden bg-cardBg border border-cardBorder rounded-xl p-5 shadow-sm overflow-x-auto">
             <h3 class="font-semibold text-lg text-slate-100 mb-4">Season Awards Comparison</h3>
@@ -347,7 +343,6 @@ function renderComparison() {
             </tr>`;
         }).join('');
     });
-    renderDivergence();
     $('compAwardsTable').innerHTML = AWARDS.map(a => {
         const counts = {};
         HOSTS.forEach(h => { const n = (P[h].awards[a.id] || '').trim().toLowerCase(); if (n) counts[n] = (counts[n] || 0) + 1; });
@@ -364,27 +359,6 @@ function renderComparison() {
     $('compBtnStandings').className = 'px-3 py-1.5 rounded-md font-medium ' + (subTab === 'standings' ? 'bg-accent text-white' : 'bg-slate-800 text-slate-300 hover:bg-slate-700');
     $('compBtnAwards').className = 'px-3 py-1.5 rounded-md font-medium ' + (subTab === 'awards' ? 'bg-accent text-white' : 'bg-slate-800 text-slate-300 hover:bg-slate-700');
 }
-function renderDivergence() {
-    const P = S.predictions;
-    $('divergenceContainer').innerHTML = [['east', 'Eastern'], ['west', 'Western']].map(([conf, label]) => {
-        const rows = P[HOSTS[0]][conf].map(team => {
-            const seeds = HOSTS.map(h => P[h][conf].indexOf(team) + 1);
-            return { team, seeds, spread: Math.max(...seeds) - Math.min(...seeds), avg: seeds.reduce((a, b) => a + b, 0) / seeds.length };
-        });
-        const top = [...rows].sort((a, b) => b.spread - a.spread || a.avg - b.avg).slice(0, 5);
-        const agree = rows.filter(r => r.spread <= 1).sort((a, b) => a.avg - b.avg);
-        return `<div>
-            <h4 class="text-sm font-semibold text-slate-200 mb-2">${label}: biggest disagreements</h4>
-            <table class="w-full text-xs text-left text-slate-300 mb-4">
-                <thead class="text-slate-400 uppercase"><tr><th class="py-1.5">Team</th>${HOSTS.map(h => `<th>${h}</th>`).join('')}<th>Spread</th></tr></thead>
-                <tbody class="divide-y divide-cardBorder/40">${top.map(r => `<tr><td class="py-1.5 font-medium text-slate-200">${esc(r.team)}</td>${r.seeds.map(s => `<td>${s}</td>`).join('')}<td class="text-red-400 font-bold">${r.spread}</td></tr>`).join('')}</tbody>
-            </table>
-            <h4 class="text-sm font-semibold text-slate-200 mb-2">${label}: near-consensus (spread ≤ 1)</h4>
-            <p class="text-xs text-slate-300">${agree.length ? agree.map(r => `<span class="inline-block bg-emerald-500/10 text-emerald-300 rounded px-2 py-0.5 mr-1 mb-1">${esc(r.team)} (~${Math.round(r.avg)})</span>`).join('') : '<span class="text-slate-500">None yet</span>'}</p>
-        </div>`;
-    }).join('');
-}
-
 // ---------- wins draft ----------
 const drafterAt = (d, n) => { const k = d.order.length, r = Math.floor(n / k), p = n % k; return d.order[r % 2 === 0 ? p : k - 1 - p]; };
 const ALL = [...EAST, ...WEST].sort();
