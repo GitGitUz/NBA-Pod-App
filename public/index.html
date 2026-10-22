@@ -564,7 +564,7 @@ document.addEventListener('input', e => {
         const host = $('awardsFormContainer').dataset.host, id = t.dataset.award, value = t.value;
         S.predictions[host].awards[id] = value;
         debounced('award:' + host + id, () => send({ t: 'award', host, id, value }));
-
+    }
 });
 
 initSortable();
