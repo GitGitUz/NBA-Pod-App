@@ -156,14 +156,19 @@
 
         <div class="bg-cardBg border border-cardBorder rounded-xl p-5 shadow-sm">
             <h3 class="font-semibold text-lg text-slate-100 mb-1">Rosters &amp; leaderboard</h3>
-            <p class="text-xs text-slate-400 mb-4">Rosters fill in as you draft. Rankings appear once win totals are entered at the end of the season.</p>
+            <p class="text-xs text-slate-400 mb-4">Rosters fill in as you draft. Team records and leaderboard totals update automatically as regular-season games finish.</p>
             <div id="draftRosters" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4"></div>
         </div>
 
         <div class="bg-cardBg border border-cardBorder rounded-xl p-5 shadow-sm">
-            <h3 class="font-semibold text-lg text-slate-100 mb-1">Final team wins (end of season)</h3>
-            <p class="text-xs text-slate-400 mb-4">Leave this empty during the draft. At season's end, enter each team's win total and the leaderboard ranks everyone.</p>
-            <div id="winsTable" class="grid grid-cols-1 md:grid-cols-2 gap-x-8"></div>
+            <div class="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                    <h3 class="font-semibold text-lg text-slate-100 mb-1">Automatic regular-season wins</h3>
+                    <p class="text-xs text-slate-400">Team records update from completed NBA regular-season games. Play-in and playoff results are excluded.</p>
+                </div>
+                <div id="winsSyncBadge" class="text-xs rounded-full px-3 py-1.5 border border-cardBorder bg-slate-900/70 text-slate-300">Waiting for sync…</div>
+            </div>
+            <p id="winsSyncDetails" class="text-xs text-slate-500 mt-3">Wins will appear here when BALLDONTLIE is configured on the server.</p>
         </div>
     </div>
 </main>
@@ -380,7 +385,7 @@ function renderDraft() {
     if (done) {
         const best = draftStats()[0];
         const anyWins = Object.keys(S.wins).length > 0;
-        $('draftClock').innerHTML = `<div class="rounded-xl border border-emerald-500/40 bg-emerald-500/10 px-5 py-4 text-emerald-200 font-semibold">Draft complete.${anyWins ? ` ${esc(best.host)} leads with ${best.total} wins.` : ' Enter team wins below to start the leaderboard.'}</div>`;
+        $('draftClock').innerHTML = `<div class="rounded-xl border border-emerald-500/40 bg-emerald-500/10 px-5 py-4 text-emerald-200 font-semibold">Draft complete.${anyWins ? ` ${esc(best.host)} leads with ${best.total} wins.` : ' Waiting for the first regular-season results.'}</div>`;
     } else {
         const who = drafterAt(d, n), r = Math.floor(n / k) + 1, p = (n % k) + 1;
         const last = d.picks[n - 1];
@@ -450,21 +455,25 @@ function renderDraft() {
                 <li class="flex justify-between text-slate-300"><span>${esc(t)}</span><span class="text-slate-400 tabular-nums">${S.wins[t] != null ? S.wins[t] : '—'}</span></li>`).join('') : '<li class="text-slate-600 text-xs">No picks yet</li>'}</ul>
         </div>`).join('');
 
-    // wins table (built once; values updated in place so typing isn't interrupted)
-    const wt = $('winsTable');
-    if (!wt.dataset.built) {
-        wt.dataset.built = '1';
-        wt.innerHTML = ALL.map(t => `
-            <div class="flex items-center justify-between gap-3 py-1.5 border-b border-cardBorder/30">
-                <div class="min-w-0"><div class="text-sm text-slate-200 truncate">${esc(t)}</div><div class="text-xs text-slate-500" data-owner="${esc(t)}"></div></div>
-                <input type="number" min="0" max="82" inputmode="numeric" data-wins="${esc(t)}" placeholder="W"
-                       class="w-20 bg-slate-900 border border-cardBorder rounded-lg px-2 py-1.5 text-sm text-right text-slate-100 focus:outline-none focus:border-accent" />
-            </div>`).join('');
-    }
-    wt.querySelectorAll('[data-owner]').forEach(el => { el.textContent = owner.get(el.dataset.owner) || 'undrafted'; });
-    wt.querySelectorAll('input[data-wins]').forEach(inp => {
-        if (document.activeElement !== inp) inp.value = S.wins[inp.dataset.wins] != null ? S.wins[inp.dataset.wins] : '';
-    });
+    // automatic wins sync status
+    const meta = S.winsMeta || {};
+    const badge = $('winsSyncBadge');
+    const details = $('winsSyncDetails');
+    const badgeStyles = {
+        ok: 'border-emerald-500/40 bg-emerald-500/10 text-emerald-200',
+        syncing: 'border-blue-500/40 bg-blue-500/10 text-blue-200',
+        error: 'border-red-500/40 bg-red-500/10 text-red-200',
+        not_configured: 'border-amber-500/40 bg-amber-500/10 text-amber-200',
+        waiting: 'border-slate-600 bg-slate-900/70 text-slate-300'
+    };
+    const statusLabels = { ok: 'Synced', syncing: 'Syncing…', error: 'Sync issue', not_configured: 'Setup required', waiting: 'Waiting for sync…' };
+    badge.className = 'text-xs rounded-full px-3 py-1.5 border ' + (badgeStyles[meta.status] || badgeStyles.waiting);
+    badge.textContent = statusLabels[meta.status] || 'Waiting for sync…';
+    const updated = meta.lastUpdatedAt ? new Date(meta.lastUpdatedAt).toLocaleString() : 'not yet';
+    details.textContent = meta.error
+        ? meta.error + (meta.lastUpdatedAt ? ' Last successful update: ' + updated + '.' : '')
+        : (meta.status === 'ok' ? 'Last updated ' + updated + '. Refreshes automatically about every 30 minutes.' : 'Regular-season team wins are calculated from final game scores; postseason games do not count.');
+
 }
 
 // ---------- text / export ----------
@@ -555,13 +564,7 @@ document.addEventListener('input', e => {
         const host = $('awardsFormContainer').dataset.host, id = t.dataset.award, value = t.value;
         S.predictions[host].awards[id] = value;
         debounced('award:' + host + id, () => send({ t: 'award', host, id, value }));
-    } else if (t.dataset && t.dataset.wins) {
-        const team = t.dataset.wins, raw = t.value.trim();
-        const wins = raw === '' ? null : parseInt(raw, 10);
-        if (wins !== null && (isNaN(wins) || wins < 0 || wins > 82)) return;
-        if (wins === null) delete S.wins[team]; else S.wins[team] = wins;
-        debounced('wins:' + team, () => send({ t: 'wins', team, wins }));
-    }
+
 });
 
 initSortable();
