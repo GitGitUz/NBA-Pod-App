@@ -138,6 +138,14 @@
         <div id="draftClock"></div>
 
         <div class="bg-cardBg border border-cardBorder rounded-xl p-5 shadow-sm">
+            <h3 class="font-semibold text-lg text-slate-100 mb-1">Wins Draft Leaderboard</h3>
+            <p id="draftLeaderboardStatus" class="text-sm text-slate-300 mb-4">Waiting for regular-season results.</p>
+            <div id="draftLeaderboard" class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-3"></div>
+        </div>
+
+        
+
+        <div class="bg-cardBg border border-cardBorder rounded-xl p-5 shadow-sm">
             <h3 class="font-semibold text-lg text-slate-100 mb-3">Draft setup</h3>
             <div id="draftSetup" class="flex flex-wrap items-end gap-x-8 gap-y-4"></div>
         </div>
@@ -155,8 +163,8 @@
         </div>
 
         <div class="bg-cardBg border border-cardBorder rounded-xl p-5 shadow-sm">
-            <h3 class="font-semibold text-lg text-slate-100 mb-1">Rosters &amp; leaderboard</h3>
-            <p class="text-xs text-slate-400 mb-4">Rosters fill in as you draft. Team records and leaderboard totals update automatically as regular-season games finish.</p>
+            <h3 class="font-semibold text-lg text-slate-100 mb-1">Rosters</h3>
+            <p class="text-xs text-slate-400 mb-4">Team records and leaderboard totals update automatically as regular-season games finish.</p>
             <div id="draftRosters" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4"></div>
         </div>
 
@@ -369,23 +377,56 @@ const drafterAt = (d, n) => { const k = d.order.length, r = Math.floor(n / k), p
 const ALL = [...EAST, ...WEST].sort();
 function draftStats() {
     const d = S.draft, wins = S.wins;
-    const owner = new Map(d.picks.map(p => [p.team, p.host]));
     return HOSTS.map(h => {
         const teams = d.picks.filter(p => p.host === h).map(p => p.team);
         const entered = teams.filter(t => wins[t] != null).length;
         return { host: h, teams, total: teams.reduce((s, t) => s + (wins[t] || 0), 0), entered };
     }).sort((a, b) => b.total - a.total || a.host.localeCompare(b.host));
 }
+function renderDraftLeaderboard(stats) {
+    const hasResults = Object.keys(S.wins || {}).length > 0;
+    const topWins = hasResults ? Math.max(...stats.map(s => s.total)) : 0;
+    const leaders = hasResults ? stats.filter(s => s.total === topWins) : [];
+    const tied = leaders.length > 1;
+    $('draftLeaderboardStatus').textContent = !hasResults
+        ? 'Waiting for regular-season results.'
+        : tied
+            ? 'Tied for the lead: ' + leaders.map(s => s.host).join(', ') + ' · ' + topWins + ' wins'
+            : leaders[0].host + ' is leading with ' + topWins + ' wins';
+    $('draftLeaderboard').innerHTML = stats.map(s => {
+        const isLeader = hasResults && s.total === topWins;
+        const cardClass = !hasResults ? 'border-cardBorder bg-slate-900/50'
+            : isLeader && tied ? 'border-amber-400/60 bg-amber-400/10'
+            : isLeader ? 'border-emerald-400/70 bg-emerald-500/15'
+            : 'border-cardBorder bg-slate-900/50';
+        const labelClass = !hasResults ? 'text-slate-400'
+            : isLeader && tied ? 'text-amber-300'
+            : isLeader ? 'text-emerald-300'
+            : 'text-slate-400';
+        const label = !hasResults ? 'No results yet' : isLeader && tied ? 'Tied for lead' : isLeader ? 'Leading' : 'Trailing';
+        return `<div class="rounded-xl border p-3 ${cardClass}">
+            <div class="flex items-start justify-between gap-2">
+                <div class="font-semibold text-slate-100">${esc(s.host)}</div>
+                <span class="text-xs font-semibold ${labelClass}">${label}</span>
+            </div>
+            <div class="text-2xl font-bold mt-2 ${labelClass}">${s.total} <span class="text-sm font-medium">wins</span></div>
+            <div class="text-xs text-slate-400 mt-1">${s.teams.length} drafted teams</div>
+        </div>`;
+    }).join('');
+}
 function renderDraft() {
     const d = S.draft, k = d.order.length, total = d.rounds * k, n = d.picks.length, done = n >= total;
     const owner = new Map(d.picks.map(p => [p.team, p.host]));
     const locked = n > 0;
+    const standings = draftStats();
+    renderDraftLeaderboard(standings);
 
     // on the clock
     if (done) {
-        const best = draftStats()[0];
+        const best = standings[0];
         const anyWins = Object.keys(S.wins).length > 0;
-        $('draftClock').innerHTML = `<div class="rounded-xl border border-emerald-500/40 bg-emerald-500/10 px-5 py-4 text-emerald-200 font-semibold">Draft complete.${anyWins ? ` ${esc(best.host)} leads with ${best.total} wins.` : ' Waiting for the first regular-season results.'}</div>`;
+        const tied = anyWins && standings.filter(s => s.total === best.total).length > 1;
+        $('draftClock').innerHTML = `<div class="rounded-xl border border-emerald-500/40 bg-emerald-500/10 px-5 py-4 text-emerald-200 font-semibold">Draft complete.${anyWins ? (tied ? ` ${standings.filter(s => s.total === best.total).map(s => esc(s.host)).join(', ')} are tied at ${best.total} wins.` : ` ${esc(best.host)} leads with ${best.total} wins.`) : ' Waiting for the first regular-season results.'}</div>`;
     } else {
         const who = drafterAt(d, n), r = Math.floor(n / k) + 1, p = (n % k) + 1;
         const last = d.picks[n - 1];
